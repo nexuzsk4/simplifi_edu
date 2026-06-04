@@ -1,0 +1,2 @@
+-r Simplifi_Edu/requirements.txt
+-r Inspirer_Edu/requirements.txt

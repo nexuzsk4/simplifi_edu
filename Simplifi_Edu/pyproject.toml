@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "preset-question-agent"
+version = "0.1.0"
+description = "Core LLM logic for generating grouped academic preset questions."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+gemini = ["google-genai>=1.0.0"]
+openai = ["openai>=1.0.0"]
+playground = ["streamlit>=1.35.0"]
+dev = []
+
+[project.scripts]
+preset-questions = "preset_question_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
