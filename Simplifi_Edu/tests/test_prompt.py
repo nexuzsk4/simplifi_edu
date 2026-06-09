@@ -9,7 +9,7 @@ from preset_question_agent.prompt import MAX_QUESTION_COUNT, MIN_QUESTION_COUNT,
 
 
 class PromptTests(unittest.TestCase):
-    def test_prompt_contains_context_and_no_course_data_reference(self):
+    def test_prompt_contains_context_and_language_instruction(self):
         context = LearningContext.from_mapping(
             {
                 "education_level": "Bachelor",
@@ -33,48 +33,25 @@ class PromptTests(unittest.TestCase):
         self.assertIn("All category titles and questions must be in this output language: English", prompt)
         self.assertNotIn("course_data", prompt)
 
-    def test_prompt_uses_target_counts_and_category_contract(self):
+    def test_prompt_uses_fixed_category_contract(self):
         context = LearningContext.from_mapping({"course": "Physics", "topic": "Linear motion"})
         prompt = build_prompt(context).as_single_prompt()
 
         self.assertEqual(TARGET_QUESTION_COUNT, 30)
         self.assertEqual(MIN_QUESTION_COUNT, 30)
         self.assertEqual(MAX_QUESTION_COUNT, 30)
-        self.assertIn("Generate exactly 30", prompt)
+        self.assertIn("Generate exactly 30 preset questions", prompt)
         self.assertIn("Hard max 30", prompt)
         self.assertIn("exact order", prompt)
-        self.assertIn("`misconceptions` 10 questions", prompt)
-        self.assertIn("`common_questions` 10 questions", prompt)
-        self.assertIn("`foundations` 10 questions", prompt)
+        self.assertIn("`misconceptions`: 10 questions", prompt)
+        self.assertIn("`common_questions`: 10 questions", prompt)
+        self.assertIn("`foundations`: 10 questions", prompt)
+        self.assertIn('"id": "misconceptions"', prompt)
+        self.assertIn('"id": "common_questions"', prompt)
+        self.assertIn('"id": "foundations"', prompt)
         self.assertNotIn("`applications`", prompt)
 
-    def test_prompt_keeps_discipline_and_depth_coverage(self):
-        context = LearningContext.from_mapping(
-            {
-                "education_level": "Doctoral",
-                "faculty": "Law",
-                "department": "Public Law",
-                "course": "Advanced Jurisprudence",
-                "topic": "Constitutional interpretation",
-            }
-        )
-        prompt = build_prompt(context).as_single_prompt()
-
-        self.assertIn("Classify the discipline", prompt)
-        self.assertIn("8-12 central sub-concepts", prompt)
-        self.assertIn("Discipline Anchors", prompt)
-        self.assertIn("Quantitative / math / physics / engineering", prompt)
-        self.assertIn("Law: doctrines, elements/tests", prompt)
-        self.assertIn("Medicine / health / pharmacy", prompt)
-        self.assertIn("Social science", prompt)
-        self.assertIn("Humanities / language / arts", prompt)
-        self.assertIn("Business / economics", prompt)
-        self.assertIn("Depth By Level", prompt)
-        self.assertIn("Doctoral: critique", prompt)
-        self.assertIn("scholarly debates", prompt)
-        self.assertIn("research gaps", prompt)
-
-    def test_prompt_enforces_specific_learner_intent_items(self):
+    def test_prompt_uses_universal_lesson_detail_anchor_method(self):
         context = LearningContext.from_mapping(
             {
                 "education_level": "Master",
@@ -86,18 +63,46 @@ class PromptTests(unittest.TestCase):
         )
         prompt = build_prompt(context).as_single_prompt()
 
-        self.assertIn("one level below the topic", prompt)
-        self.assertIn("If a question would still work", prompt)
-        self.assertIn("too broad", prompt)
-        self.assertIn("Every item must be a learner-facing question", prompt)
-        self.assertIn("never a bare topic label", prompt)
-        self.assertIn("A question mark is optional", prompt)
-        self.assertIn("question intent is required", prompt)
-        self.assertIn("At least 80% of questions", prompt)
-        self.assertIn("concrete topic anchor", prompt)
-        self.assertIn("what factors affect this", prompt)
+        self.assertIn("Infer 8-12 lesson-detail anchors", prompt)
+        self.assertIn("specific sub-detail taught inside the topic", prompt)
+        self.assertIn("property, relationship, quantity, representation", prompt)
+        self.assertIn("condition, operation, method, model", prompt)
+        self.assertIn("edge case, boundary, exception", prompt)
+        self.assertIn("reasoning pattern", prompt)
+        self.assertIn("Do not output the anchor list", prompt)
 
-    def test_prompt_frames_misconceptions_and_common_questions(self):
+    def test_prompt_rejects_broad_anchors_and_topic_stuffing(self):
+        context = LearningContext.from_mapping({"course": "Social Studies", "topic": "Welfare policy"})
+        prompt = build_prompt(context).as_single_prompt()
+
+        self.assertIn("Reject broad anchors", prompt)
+        self.assertIn("exact topic name", prompt)
+        self.assertIn("course name", prompt)
+        self.assertIn("parent field", prompt)
+        self.assertIn('generic words like "concept", "system", "data"', prompt)
+        self.assertIn("real life", prompt)
+        self.assertIn("topic stuffing", prompt)
+        self.assertIn("If removing the anchor would make the question fit many unrelated topics", prompt)
+
+    def test_prompt_controls_depth_without_old_level_taxonomy(self):
+        context = LearningContext.from_mapping(
+            {
+                "education_level": "Bachelor",
+                "year": "Year 1",
+                "course": "Calculus 1",
+                "topic": "Limits and continuity",
+            }
+        )
+        prompt = build_prompt(context).as_single_prompt()
+
+        self.assertIn("one level below the topic", prompt)
+        self.assertIn("Adapt depth to the learner level", prompt)
+        self.assertIn("go deeper within the learner's level", prompt)
+        self.assertIn("do not add advanced or graduate framing unless the input explicitly implies it", prompt)
+        self.assertNotIn("Depth By Level", prompt)
+        self.assertNotIn("Doctoral: critique", prompt)
+
+    def test_prompt_frames_categories_as_deep_academic_inquiry(self):
         context = LearningContext.from_mapping(
             {
                 "course": "Microbial Proteomics",
@@ -106,17 +111,16 @@ class PromptTests(unittest.TestCase):
         )
         prompt = build_prompt(context).as_single_prompt()
 
-        self.assertIn("misconceptions: learner questions that check mistaken assumptions", prompt)
-        self.assertIn("Title should mean \"misconception check questions\"", prompt)
-        self.assertIn("Do not write statements or headings", prompt)
-        self.assertIn("Does X always imply Y", prompt)
-        self.assertIn("Can X be used interchangeably with Y", prompt)
-        self.assertIn("Why does X not necessarily mean Y", prompt)
-        self.assertIn("common_questions: natural lesson questions", prompt)
-        self.assertIn("or subtopic labels", prompt)
-        self.assertIn("meaning of X", prompt)
+        self.assertIn("`misconceptions`: questions that reveal mistaken assumptions", prompt)
+        self.assertIn("boundary confusion", prompt)
+        self.assertIn("overgeneralization", prompt)
+        self.assertIn("`common_questions`: natural questions a learner might ask", prompt)
+        self.assertIn("specific sub-detail", prompt)
+        self.assertIn("`foundations`: deep foundation questions", prompt)
+        self.assertIn("Direct definition questions are allowed only when framed through relation", prompt)
+        self.assertIn("boundary, condition, representation, or why-it-matters", prompt)
 
-    def test_prompt_avoids_exercise_style_questions(self):
+    def test_prompt_forbids_quiz_exercise_and_case_solving_style(self):
         context = LearningContext.from_mapping(
             {
                 "education_level": "Bachelor",
@@ -128,23 +132,33 @@ class PromptTests(unittest.TestCase):
         )
         prompt = build_prompt(context).as_single_prompt()
 
-        self.assertIn("learning inquiry presets, not exercises", prompt)
-        self.assertIn("homework tasks, quizzes, or exam items", prompt)
-        self.assertIn("natural lesson questions", prompt)
-        self.assertIn("Do not write exercises", prompt)
-        self.assertIn("Do not ask the learner to solve a specific invented problem", prompt)
-        self.assertIn("Avoid task-command wording", prompt)
+        self.assertIn("not exercises", prompt)
+        self.assertIn("homework tasks", prompt)
+        self.assertIn("quizzes", prompt)
+        self.assertIn("exams", prompt)
+        self.assertIn("Do not write quiz, exam, homework, exercise", prompt)
+        self.assertIn("formula-recall", prompt)
+        self.assertIn("calculation", prompt)
+        self.assertIn("proof", prompt)
+        self.assertIn("solve", prompt)
         self.assertIn("calculate", prompt)
         self.assertIn("find the value", prompt)
-        self.assertIn("จง", prompt)
-        self.assertIn("how to reason through", prompt)
-        self.assertIn("what condition to check", prompt)
-        self.assertIn("do not invent specific values, functions, statutes, case facts", prompt)
-        self.assertIn("datasets, passages, or scenarios", prompt)
-        self.assertIn("What is the limit of f(x)=(x^2-4)/(x-2)", prompt)
-        self.assertIn("Why does factoring reveal a removable discontinuity", prompt)
-        self.assertIn("Which elements of doctrine X", prompt)
-        self.assertIn("Which renal function and monitoring factors", prompt)
+        self.assertIn("Do not invent specific values, functions, statutes", prompt)
+        self.assertIn("case facts, patient data, datasets, passages, or scenarios", prompt)
+
+    def test_prompt_removes_old_bloated_prompt_sections(self):
+        context = LearningContext.from_mapping({"course": "Economics", "topic": "Elasticity"})
+        prompt = build_prompt(context).as_single_prompt()
+
+        self.assertNotIn("Discipline Anchors", prompt)
+        self.assertNotIn("Quantitative / math / physics / engineering", prompt)
+        self.assertNotIn("Law: doctrines, elements/tests", prompt)
+        self.assertNotIn("Medicine / health / pharmacy", prompt)
+        self.assertNotIn("Social science", prompt)
+        self.assertNotIn("Humanities / language / arts", prompt)
+        self.assertNotIn("Business / economics", prompt)
+        self.assertNotIn("8-12 central sub-concepts", prompt)
+        self.assertNotIn("applications", prompt)
 
 
 if __name__ == "__main__":
